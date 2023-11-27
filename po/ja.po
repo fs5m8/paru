@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: paru VERSION\n"
 "Report-Msgid-Bugs-To: https://github.com/Morganamilo/paru\n"
 "POT-Creation-Date: 2023-11-27 04:08+0000\n"
-"PO-Revision-Date: 2023-11-27 22:33+0900\n"
+"PO-Revision-Date: 2023-11-28 05:37+0900\n"
 "Last-Translator: fs5m8 <fsco3092@protonmail.com>\n"
 "Language-Team: \n"
 "Language: ja\n"
@@ -386,7 +386,8 @@ msgstr "オペレーションなしでのオプション:"
 
 #: src/help.rs:28
 msgid "    -c --clean            Remove unneeded dependencies"
-msgstr "    -c --clean            どのパッケージからも必要とされないパッケージを削除"
+msgstr ""
+"    -c --clean            どのパッケージからも必要とされないパッケージを削除"
 
 #: src/help.rs:29
 msgid ""
@@ -406,7 +407,7 @@ msgstr "       --repo              対象がリポジトリのものであると
 #: src/help.rs:33
 msgid ""
 "       --pkgbuilds         Assume targets are from pkgbuild repositories"
-msgstr "       --pkgbuilds         対象が PKGBUILD リポジトリにあると仮定"
+msgstr "       --pkgbuilds         対象が PKGBUILD のものであると仮定"
 
 #: src/help.rs:34
 msgid "    -a --aur               Assume targets are from the AUR"
@@ -487,7 +488,8 @@ msgstr "    --gpgflags  <flags>    gpg に渡す引数を指定"
 
 #: src/help.rs:55
 msgid "    --fm        <file>     File manager to use for PKGBUILD review"
-msgstr "    --fm        <file>     PKGBUILD のレビューに使うファイルマネージャを指定"
+msgstr ""
+"    --fm        <file>     PKGBUILD のレビューに使うファイルマネージャを指定"
 
 #: src/help.rs:56
 msgid "    --fmflags   <flags>    Pass arguments to file manager"
@@ -531,7 +533,8 @@ msgstr ""
 
 #: src/help.rs:67
 msgid "    --[no]removemake       Remove makedepends after install"
-msgstr "    --[no]removemake       ビルド時の依存パッケージをインストール後に削除"
+msgstr ""
+"    --[no]removemake       ビルド時の依存パッケージをインストール後に削除"
 
 #: src/help.rs:68
 msgid "    --[no]cleanafter       Remove package sources after install"
@@ -547,18 +550,21 @@ msgstr "    --[no]redownload       対象の PKGBUILD を再ダウンロード"
 
 #: src/help.rs:72
 msgid "    --[no]pgpfetch         Prompt to import PGP keys from PKGBUILDs"
-msgstr "    --[no]pgpfetch         PKGBUILD の PGP 鍵をインポートするかどうかを表示"
+msgstr ""
+"    --[no]pgpfetch         PKGBUILD の PGP 鍵をインポートするかどうかを表示"
 
 #: src/help.rs:73
 msgid ""
 "    --[no]useask           Automatically resolve conflicts using pacman's "
 "ask flag"
-msgstr "    --[no]useask           pacman の ask フラグを使用して自動的に衝突を解決"
+msgstr ""
+"    --[no]useask           pacman の ask フラグを使用して自動的に衝突を解決"
 
 #: src/help.rs:74
 msgid ""
 "    --[no]savechanges      Commit changes to pkgbuilds made during review"
-msgstr "    --[no]savechanges      レビュー中に PKGBUILD に加えた変更をコミットする"
+msgstr ""
+"    --[no]savechanges      レビュー中に PKGBUILD に加えた変更をコミットする"
 
 #: src/help.rs:75
 msgid "    --[no]newsonupgrade    Print new news during sysupgrade"
@@ -612,7 +618,8 @@ msgstr "    --[no]chroot           chroot してパッケージをビルド"
 #: src/help.rs:83
 msgid ""
 "    --[no]failfast         Exit as soon as building an AUR package fails"
-msgstr "    --[no]failfast         AUR パッケージのビルドに失敗した場合直ちに終了する"
+msgstr ""
+"    --[no]failfast         AUR パッケージのビルドに失敗した場合直ちに終了する"
 
 #: src/help.rs:84
 msgid ""
@@ -635,7 +642,8 @@ msgstr "    --[no]localrepo        ローカルリポジトリにパッケージ
 msgid ""
 "    --nocheck              Don't resolve checkdepends or run the check "
 "function"
-msgstr "    --nocheck              チェック時の依存関係の解決とチェックを行わない"
+msgstr ""
+"    --nocheck              チェック時の依存関係の解決とチェックを行わない"
 
 #: src/help.rs:89
 msgid ""
@@ -652,12 +660,14 @@ msgstr "    --ignoredevel          特定パッケージの開発の更新を拒
 #: src/help.rs:91
 msgid ""
 "    --bottomup             Shows AUR's packages first and then repository's"
-msgstr "    --bottomup             AUR パッケージを表示後リポジトリパッケージを表示"
+msgstr ""
+"    --bottomup             AUR パッケージを表示後リポジトリパッケージを表示"
 
 #: src/help.rs:92
 msgid ""
 "    --topdown              Shows repository's packages first and then AUR's"
-msgstr "    --topdown              リポジトリパッケージを表示後 AUR パッケージを表示"
+msgstr ""
+"    --topdown              リポジトリパッケージを表示後 AUR パッケージを表示"
 
 #: src/help.rs:94
 msgid "show specific options:"
