@@ -8,15 +8,15 @@ msgstr ""
 "Project-Id-Version: paru VERSION\n"
 "Report-Msgid-Bugs-To: https://github.com/Morganamilo/paru\n"
 "POT-Creation-Date: 2023-11-27 04:08+0000\n"
-"PO-Revision-Date: 2022-06-30 21:10+0900\n"
-"Last-Translator: livewing.net <dev@livewing.net>\n"
+"PO-Revision-Date: 2023-11-27 22:33+0900\n"
+"Last-Translator: fs5m8 <fsco3092@protonmail.com>\n"
 "Language-Team: \n"
 "Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Poedit 3.0.1\n"
+"X-Generator: Lokalize 23.08.3\n"
 
 #: src/clean.rs:36
 msgid "Do you want to clean ALL AUR packages from cache?"
@@ -83,13 +83,12 @@ msgid "invalid value '{val}' for key '{key}', expected: {exp}"
 msgstr "キー '{key}' に対して値 '{val}' は不正です、期待される値: {exp}"
 
 #: src/config.rs:339
-#, fuzzy
 msgid "unknown mode {}"
-msgstr "不明なオプション -{}"
+msgstr "不明なモード {}"
 
 #: src/config.rs:567
 msgid "section can not be called {}"
-msgstr ""
+msgstr "セクションを呼ぶことができません {}"
 
 #: src/config.rs:584
 msgid "failed to find cache directory"
@@ -100,9 +99,8 @@ msgid "failed to find config directory"
 msgstr "設定ディレクトリが見つかりません"
 
 #: src/config.rs:591
-#, fuzzy
 msgid "failed to find state directory"
-msgstr "キャッシュディレクトリが見つかりません"
+msgstr "状態ディレクトリが見つかりません"
 
 #: src/config.rs:638
 msgid "config file '{}' does not exist"
@@ -114,7 +112,7 @@ msgstr "一度にできる操作はひとつだけです"
 
 #: src/config.rs:798
 msgid "no local repo named {}"
-msgstr ""
+msgstr "ローカルリポジトリに名前がありません {}"
 
 #: src/config.rs:821
 msgid "can not find local repo '{}' in pacman.conf"
@@ -137,9 +135,8 @@ msgid "key can not be empty"
 msgstr "キーは空にできません"
 
 #: src/config.rs:978
-#, fuzzy
 msgid "error: unknown option '{}' in repo"
-msgstr "エラー: セクション [bin] の不明なオプション '{}'"
+msgstr "エラー: リポジトリの不明なオプション '{}'"
 
 #: src/config.rs:988
 msgid "key can not contain null bytes"
@@ -191,23 +188,20 @@ msgid "failed to save devel info"
 msgstr "開発情報の保存に失敗しました"
 
 #: src/devel.rs:218
-#, fuzzy
 msgid "failed to create state directory: {}"
-msgstr "キャッシュディレクトリが見つかりません"
+msgstr "状態ディレクトリの作成に失敗しました: {}"
 
 #: src/devel.rs:233
-#, fuzzy
 msgid "failed to create temporary file: {}"
-msgstr "ファイルマネージャの実行に失敗しました"
+msgstr "一時ファイルの作成に失敗しました: {}"
 
 #: src/devel.rs:238
-#, fuzzy
 msgid "failed to write to temporary file: {}"
-msgstr "ディレクトリの読み込みに失敗しました: {}"
+msgstr "一時ファイルの書き込みに失敗しました: {}"
 
 #: src/devel.rs:244
 msgid "failed to rename '{temp}' to '{devel_toml}"
-msgstr ""
+msgstr "'{temp}' から '{devel_toml}' への名前変更に失敗しました"
 
 #: src/devel.rs:490
 msgid "package does not have an update"
@@ -218,9 +212,8 @@ msgid "failed to lookup: {}"
 msgstr "検索に失敗: {}"
 
 #: src/devel.rs:562
-#, fuzzy
 msgid "invalid toml: {}"
-msgstr "不正な JSON: {}"
+msgstr "不正な TOML: {}"
 
 #: src/download.rs:95
 msgid "packages not in the AUR: "
@@ -269,7 +262,7 @@ msgstr "リポジトリ ビルド"
 
 #: src/fmt.rs:264
 msgid "Pkgbuilds Make"
-msgstr ""
+msgstr "PKGBUILD ビルド"
 
 #: src/fmt.rs:266
 msgid "Aur Make"
@@ -281,11 +274,11 @@ msgstr "リポジトリ ({})"
 
 #: src/fmt.rs:316
 msgid "Aur ({})"
-msgstr "Aur ({})"
+msgstr "AUR ({})"
 
 #: src/fmt.rs:317
 msgid "Pkgbuilds ({})"
-msgstr ""
+msgstr "PKGBUILD ({})"
 
 #: src/fmt.rs:319
 msgid "Old Version"
@@ -297,7 +290,7 @@ msgstr "新しいバージョン"
 
 #: src/fmt.rs:321
 msgid "Make Only"
-msgstr "Makeのみ"
+msgstr "Make のみ"
 
 #: src/fmt.rs:322
 msgid "Yes"
@@ -380,9 +373,8 @@ msgid "    paru {-G --getpkgbuild} [package(s)]"
 msgstr "    paru {-G --getpkgbuild} [パッケージ]"
 
 #: src/help.rs:23
-#, fuzzy
 msgid "    paru {-B --build}       [dir(s)]"
-msgstr "    paru {-P --show}        [オプション]"
+msgstr "    paru {-B --build}       [ディレクトリ]"
 
 #: src/help.rs:25
 msgid "If no arguments are provided 'paru -Syu' will be performed"
@@ -394,8 +386,7 @@ msgstr "オペレーションなしでのオプション:"
 
 #: src/help.rs:28
 msgid "    -c --clean            Remove unneeded dependencies"
-msgstr ""
-"    -c --clean            どのパッケージからも必要とされないパッケージを削除"
+msgstr "    -c --clean            どのパッケージからも必要とされないパッケージを削除"
 
 #: src/help.rs:29
 msgid ""
@@ -413,10 +404,9 @@ msgid "       --repo              Assume targets are from the repositories"
 msgstr "       --repo              対象がリポジトリのものであると仮定"
 
 #: src/help.rs:33
-#, fuzzy
 msgid ""
 "       --pkgbuilds         Assume targets are from pkgbuild repositories"
-msgstr "       --repo              対象がリポジトリのものであると仮定"
+msgstr "       --pkgbuilds         対象が PKGBUILD リポジトリにあると仮定"
 
 #: src/help.rs:34
 msgid "    -a --aur               Assume targets are from the AUR"
@@ -424,23 +414,22 @@ msgstr "    -a --aur               対象が AUR のものであると仮定"
 
 #: src/help.rs:35
 msgid "    --mode      <mode>     Sets where paru looks for targets"
-msgstr ""
+msgstr "    --mode      <mode>     対象を探す場所を指定"
 
 #: src/help.rs:37
 msgid ""
 "    --interactive          Enable interactive package selection for -S, -R, -"
 "Ss and -Qs"
-msgstr ""
+msgstr "    --interactive          -S, -R, -Ss, -Qs で対話型検索を有効にする"
 
 #: src/help.rs:39
 msgid "    --aururl    <url>      Set an alternative AUR URL"
 msgstr "    --aururl    <url>      AUR の URL を指定"
 
 #: src/help.rs:40
-#, fuzzy
 msgid ""
 "    --aurrpcur  <url>      Set an alternative URL for the AUR /rpc endpoint"
-msgstr "    --aururl    <url>      AUR の URL を指定"
+msgstr "    --aurrpcur  <url>      AUR /rpc エンドポイントの URL を指定"
 
 #: src/help.rs:41
 msgid "    --clonedir  <dir>      Directory used to download and run PKGBUILDs"
@@ -477,9 +466,8 @@ msgid "    --sudoflags <flags>    Pass arguments to sudo"
 msgstr "    --sudoflags <flags>    sudo に渡す引数を指定"
 
 #: src/help.rs:50
-#, fuzzy
 msgid "    --pkgctl    <file>     pkgctl command to use"
-msgstr "    --git       <file>     git コマンドを指定"
+msgstr "    --pkgctl    <file>     pkgctl コマンドを指定"
 
 #: src/help.rs:51
 msgid "    --bat       <file>     bat command to use"
@@ -499,8 +487,7 @@ msgstr "    --gpgflags  <flags>    gpg に渡す引数を指定"
 
 #: src/help.rs:55
 msgid "    --fm        <file>     File manager to use for PKGBUILD review"
-msgstr ""
-"    --fm        <file>     PKGBUILD のレビューに使うファイルマネージャを指定"
+msgstr "    --fm        <file>     PKGBUILD のレビューに使うファイルマネージャを指定"
 
 #: src/help.rs:56
 msgid "    --fmflags   <flags>    Pass arguments to file manager"
@@ -526,7 +513,7 @@ msgstr "    --limit     <limit>    検索で表示されるアイテム数を制
 
 #: src/help.rs:62
 msgid "    -x --regex             Enable regex for aur search"
-msgstr "    -x --regex             aur検索に正規表現を使用する"
+msgstr "    -x --regex             AUR 検索に正規表現を使用する"
 
 #: src/help.rs:64
 msgid "    --skipreview           Skip the review process"
@@ -544,8 +531,7 @@ msgstr ""
 
 #: src/help.rs:67
 msgid "    --[no]removemake       Remove makedepends after install"
-msgstr ""
-"    --[no]removemake       ビルド時の依存パッケージをインストール後に削除"
+msgstr "    --[no]removemake       ビルド時の依存パッケージをインストール後に削除"
 
 #: src/help.rs:68
 msgid "    --[no]cleanafter       Remove package sources after install"
@@ -561,21 +547,18 @@ msgstr "    --[no]redownload       対象の PKGBUILD を再ダウンロード"
 
 #: src/help.rs:72
 msgid "    --[no]pgpfetch         Prompt to import PGP keys from PKGBUILDs"
-msgstr ""
-"    --[no]pgpfetch         PKGBUILD の PGP 鍵をインポートするかどうかを表示"
+msgstr "    --[no]pgpfetch         PKGBUILD の PGP 鍵をインポートするかどうかを表示"
 
 #: src/help.rs:73
 msgid ""
 "    --[no]useask           Automatically resolve conflicts using pacman's "
 "ask flag"
-msgstr ""
-"    --[no]useask           pacman の ask フラグを使用して自動的に衝突を解決"
+msgstr "    --[no]useask           pacman の ask フラグを使用して自動的に衝突を解決"
 
 #: src/help.rs:74
 msgid ""
 "    --[no]savechanges      Commit changes to pkgbuilds made during review"
-msgstr ""
-"    --[no]savechanges      レビュー中にpkgbuilldに加えた変更をコミットする"
+msgstr "    --[no]savechanges      レビュー中に PKGBUILD に加えた変更をコミットする"
 
 #: src/help.rs:75
 msgid "    --[no]newsonupgrade    Print new news during sysupgrade"
@@ -629,13 +612,12 @@ msgstr "    --[no]chroot           chroot してパッケージをビルド"
 #: src/help.rs:83
 msgid ""
 "    --[no]failfast         Exit as soon as building an AUR package fails"
-msgstr ""
-"    --[no]failfast         AURパッケージのビルドに失敗した場合直ちに終了する"
+msgstr "    --[no]failfast         AUR パッケージのビルドに失敗した場合直ちに終了する"
 
 #: src/help.rs:84
 msgid ""
 "    --[no]keepsrc          Keep src/ and pkg/ dirs after building packages"
-msgstr "    --[no]keepsrc          ビルド完了後にsrc/とpkg/をそのままにする"
+msgstr "    --[no]keepsrc          ビルド完了後に src/ と pkg/ をそのままにする"
 
 #: src/help.rs:85
 msgid "    --[no]sign             Sign packages with gpg"
@@ -646,16 +628,14 @@ msgid "    --[no]signdb           Sign databases with gpg"
 msgstr "    --[no]signdb           gpg でデータベースに署名"
 
 #: src/help.rs:87
-#, fuzzy
 msgid "    --[no]localrepo        Build packages into a local repo"
-msgstr "    --localrepo            ローカルリポジトリにパッケージをビルド"
+msgstr "    --[no]localrepo        ローカルリポジトリにパッケージをビルド"
 
 #: src/help.rs:88
 msgid ""
 "    --nocheck              Don't resolve checkdepends or run the check "
 "function"
-msgstr ""
-"    --nocheck              チェック時の依存関係の解決とチェックを行わない"
+msgstr "    --nocheck              チェック時の依存関係の解決とチェックを行わない"
 
 #: src/help.rs:89
 msgid ""
@@ -666,21 +646,18 @@ msgstr ""
 "指定"
 
 #: src/help.rs:90
-#, fuzzy
 msgid "    --ignoredevel          Ignore devel upgrades for specified packages"
-msgstr "    --[no]provides         検索時にマッチする提供パッケージを探す"
+msgstr "    --ignoredevel          特定パッケージの開発の更新を拒否する"
 
 #: src/help.rs:91
 msgid ""
 "    --bottomup             Shows AUR's packages first and then repository's"
-msgstr ""
-"    --bottomup             AUR パッケージを表示後リポジトリパッケージを表示"
+msgstr "    --bottomup             AUR パッケージを表示後リポジトリパッケージを表示"
 
 #: src/help.rs:92
 msgid ""
 "    --topdown              Shows repository's packages first and then AUR's"
-msgstr ""
-"    --topdown              リポジトリパッケージを表示後 AUR パッケージを表示"
+msgstr "    --topdown              リポジトリパッケージを表示後 AUR パッケージを表示"
 
 #: src/help.rs:94
 msgid "show specific options:"
@@ -712,12 +689,11 @@ msgstr "    -c --comments         AUR コメントを表示"
 
 #: src/help.rs:102
 msgid "    -s --ssh              Clone package using SSH"
-msgstr "    -s --ssh              パッケージをSSHを使用してクローンする"
+msgstr "    -s --ssh              パッケージを SSH を使用してクローンする"
 
 #: src/help.rs:104
-#, fuzzy
 msgid "Build specific options:"
-msgstr "getpkgbuild 特有のオプション:"
+msgstr "Build 特有のオプション:"
 
 #: src/help.rs:105
 msgid "    -i --install          Install package as well as building"
@@ -813,7 +789,7 @@ msgstr "スナップショット URL"
 
 #: src/info.rs:109 src/info.rs:205
 msgid "Path"
-msgstr ""
+msgstr "パス"
 
 #: src/install.rs:158 src/query.rs:48 src/lib.rs:104
 msgid "error:"
@@ -873,7 +849,7 @@ msgstr "開発情報を取得しています..."
 
 #: src/install.rs:880 src/lib.rs:244
 msgid "no targets specified (use -h for help)"
-msgstr "対象が指定されていません (-h を使ってヘルプを見て下さい)"
+msgstr "対象が指定されていません (-h を使ってヘルプを見てください)"
 
 #: src/install.rs:989 src/install.rs:1070 src/search.rs:408 src/search.rs:433
 #: src/lib.rs:308
@@ -890,7 +866,7 @@ msgstr "root で AUR パッケージをインストールできません"
 
 #: src/install.rs:1061
 msgid "--downloadonly can't be used for AUR packages"
-msgstr ""
+msgstr "--downloadonly AURパッケージを使用しない "
 
 #: src/install.rs:1086
 msgid "Remove make dependencies after install?"
@@ -978,7 +954,7 @@ msgstr "バイナリファイル: {}"
 
 #: src/install.rs:1666 src/install.rs:1730
 msgid "Accept changes?"
-msgstr ""
+msgstr "変更を受け入れますか？"
 
 #: src/install.rs:1734
 msgid " nothing new to review"
@@ -1017,27 +993,24 @@ msgid "no new news"
 msgstr "新しいニュースはありません"
 
 #: src/pkgbuild.rs:72
-#, fuzzy
 msgid "repo {} does not have a URL or Path"
-msgstr "オプション '{}' は値をとりません"
+msgstr "リポジトリ '{}' はURLまたはパスがありません"
 
 #: src/pkgbuild.rs:134
 msgid "repo {} not downloaded (use -Sy --pkgbuilds to download)"
-msgstr ""
+msgstr "リポジトリ '{}' はダウンロードされていません (-Sy --pkgbuilds を使ってダウンロードしてください)"
 
 #: src/pkgbuild.rs:181
 msgid "Generating .SRCINFO for {repo}/{dir}..."
-msgstr ""
+msgstr "{repo}/{dir} の .SRCINFO を生成しています..."
 
 #: src/pkgbuild.rs:259
-#, fuzzy
 msgid "failed to parse srcinfo \"{}\""
 msgstr "'{}' の SRCINFO の解析に失敗しました"
 
 #: src/pkgbuild.rs:337
-#, fuzzy
 msgid "Downloading PKGBUILD Repos..."
-msgstr "PKGBUILD をダウンロードしています..."
+msgstr "PKGBUILD リポジトリをダウンロードしています..."
 
 #: src/pkgbuild.rs:374
 msgid "failed to parse srcinfo generated by makepkg"
@@ -1073,7 +1046,7 @@ msgstr "削除を続行しますか？"
 
 #: src/search.rs:40
 msgid "aur search failed"
-msgstr "aurの検索に失敗しました"
+msgstr "AUR の検索に失敗しました"
 
 #: src/search.rs:275 src/search.rs:316 src/search.rs:370
 msgid "[Installed: {}]"
@@ -1100,9 +1073,8 @@ msgid "Packages to install (eg: 1 2 3, 1-3):"
 msgstr "インストールするパッケージ (例: 1 2 3, 1-3):"
 
 #: src/search.rs:487
-#, fuzzy
 msgid "Select packages (eg: 1 2 3, 1-3):"
-msgstr "インストールするパッケージ (例: 1 2 3, 1-3):"
+msgstr "選択するパッケージ (例: 1 2 3, 1-3):"
 
 #: src/stats.rs:90
 msgid "Total installed packages: {}"
@@ -1133,9 +1105,8 @@ msgid " [installed]"
 msgstr " [インストール済み]"
 
 #: src/upgrade.rs:128
-#, fuzzy
 msgid "Looking for PKGBUILD upgrades..."
-msgstr "AUR の更新を確認しています..."
+msgstr "PKGBUILD の更新を確認しています..."
 
 #: src/upgrade.rs:136
 msgid "Looking for AUR upgrades..."
@@ -1197,7 +1168,7 @@ msgid ""
 msgstr ""
 "\n"
 "\n"
-"選択して下さい (デフォルト=all): "
+"選択してください (デフォルト=all): "
 
 #: src/lib.rs:210
 msgid "can not use chroot builds: devtools is not installed"
@@ -1205,7 +1176,7 @@ msgstr "chroot してビルドできません: devtools がインストールさ
 
 #: src/lib.rs:317
 msgid "no operation specified (use -h for help)"
-msgstr "対象が指定されていません (-h を使ってヘルプを見て下さい)"
+msgstr "対象が指定されていません (-h を使ってヘルプを見てください)"
 
 #: src/lib.rs:510
 msgid " [installed: {}]"
@@ -1234,9 +1205,8 @@ msgstr " [インストール済み: {}]"
 #~ msgid "    --asp       <file>     asp command to use"
 #~ msgstr "    --asp       <file>     asp コマンドを指定"
 
-#, fuzzy
 #~ msgid "Generating .SRCINFO for {dir}..."
-#~ msgstr "'{}' の .SRCINFO を見つけられませんでした"
+#~ msgstr "'{}' の .SRCINFO を生成しています"
 
 #~ msgid "upgrade specific options:"
 #~ msgstr "upgrade 特有のオプション:"
