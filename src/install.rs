@@ -510,8 +510,11 @@ impl Installer {
             if config.repos == LocalRepos::None {
                 extra.extend(self.built.iter().map(|s| s.as_str()));
             }
+            let mut chroot_flags: Vec<&str> =
+                config.chroot_flags.iter().map(|s| s.as_str()).collect();
+            chroot_flags.push("-cu");
             self.chroot
-                .build(dir, &extra, &["-cu"], &["-ofA"], &config.env)
+                .build(dir, &extra, &chroot_flags, &["-ofA"], &config.env)
                 .with_context(|| tr!("failed to download sources for '{}'"))?;
         } else {
             // download sources
@@ -554,7 +557,7 @@ impl Installer {
                     .build(
                         dir,
                         &extra,
-                        &[],
+                        &config.chroot_flags,
                         &["-feA", "--noconfirm", "--noprepare", "--holdver"],
                         &env,
                     )
@@ -1247,7 +1250,8 @@ fn print_warnings(config: &Config, cache: &Cache, actions: Option<&Actions>) {
     }
 
     if config.args.has_arg("u", "sysupgrade") && config.mode.aur() {
-        let (_, pkgs) = repo_aur_pkgs(config);
+        let (_, mut pkgs) = repo_aur_pkgs(config);
+        pkgs.retain(|pkg| config.pkgbuild_repos.pkg(config, pkg.name()).is_none());
 
         warnings.missing = pkgs
             .iter()
