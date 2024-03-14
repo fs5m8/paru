@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: paru VERSION\n"
 "Report-Msgid-Bugs-To: https://github.com/Morganamilo/paru\n"
 "POT-Creation-Date: 2023-12-01 19:43+0000\n"
-"PO-Revision-Date: 2023-11-28 05:37+0900\n"
+"PO-Revision-Date: 2024-03-15 00:57+0900\n"
 "Last-Translator: fs5m8 <fsco3092@protonmail.com>\n"
 "Language-Team: \n"
 "Language: ja\n"
@@ -16,7 +16,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Lokalize 23.08.3\n"
+"X-Generator: Lokalize 24.02.0\n"
 
 #: src/clean.rs:36
 msgid "Do you want to clean ALL AUR packages from cache?"
@@ -55,9 +55,8 @@ msgid "can't open clone dir: {}"
 msgstr "複製ディレクトリを開けません: {}"
 
 #: src/clean.rs:141
-#, fuzzy
 msgid "could not parse .SRCINFO for '{}'"
-msgstr "'{}' の .SRCINFO を見つけられませんでした"
+msgstr "'{}' の .SRCINFO を解析できませんでした"
 
 #: src/command_line.rs:134
 msgid "option {} expects a value"
@@ -117,7 +116,7 @@ msgstr "一度にできる操作はひとつだけです"
 
 #: src/config.rs:798
 msgid "no local repo named {}"
-msgstr "ローカルリポジトリに名前がありません {}"
+msgstr "ローカルリポジトリがありません {}"
 
 #: src/config.rs:821
 msgid "can not find local repo '{}' in pacman.conf"
