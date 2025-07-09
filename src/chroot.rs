@@ -1,8 +1,11 @@
 use crate::config::Config;
 use crate::exec;
-use anyhow::Result;
+use anyhow::{Context, Result};
+use nix::unistd::{Uid, User};
 use std::ffi::OsStr;
+use std::fs::Permissions;
 use std::io::Write;
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -15,10 +18,13 @@ pub struct Chroot {
     pub mflags: Vec<String>,
     pub ro: Vec<String>,
     pub rw: Vec<String>,
+    pub extra_pkgs: Vec<String>,
 }
 
 fn pacman_conf(pacman_conf: &str) -> Result<tempfile::NamedTempFile> {
     let mut tmp = tempfile::NamedTempFile::new()?;
+    tmp.as_file()
+        .set_permissions(Permissions::from_mode(0o644))?;
     let conf = pacmanconf::Config::expand_with_opts(None, Some(pacman_conf), Some("/"))?;
 
     // Bug with dbpath in pacstrap
@@ -60,7 +66,21 @@ impl Chroot {
     }
 
     pub fn run<S: AsRef<OsStr>>(&self, args: &[S]) -> Result<()> {
-        let dir = self.path.join("root");
+        self.run_as(true, args)
+    }
+    pub fn run_usr<S: AsRef<OsStr>>(&self, args: &[S]) -> Result<()> {
+        self.run_as(false, args)
+    }
+
+    fn run_as<S: AsRef<OsStr>>(&self, root: bool, args: &[S]) -> Result<()> {
+        let dir = if root {
+            self.path.join("root")
+        } else {
+            let user = User::from_uid(Uid::current())
+                .context("failed to get username")?
+                .context("failed to get username")?;
+            self.path.join(&user.name)
+        };
         let tmp = pacman_conf(&self.pacman_conf)?;
 
         let mut cmd = Command::new(&self.sudo);
@@ -70,6 +90,11 @@ impl Chroot {
             .arg("-M")
             .arg(&self.makepkg_conf)
             .arg(dir);
+
+        if Path::new(&format!("{}.d", self.makepkg_conf)).exists() {
+            cmd.arg("--bind-ro");
+            cmd.arg(format!("{}.d:/etc/makepkg.conf.d", self.makepkg_conf));
+        }
 
         for file in &self.ro {
             cmd.arg("--bind-ro");

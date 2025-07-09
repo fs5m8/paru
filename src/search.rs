@@ -6,7 +6,7 @@ use crate::fmt::{color_repo, print_indent};
 use crate::util::{input, NumberMenu};
 use crate::{info, printtr};
 
-use ansi_term::Style;
+use ansiterm::Style;
 use anyhow::{ensure, Context, Result};
 use indicatif::HumanBytes;
 use raur::{Raur, SearchBy};
@@ -267,7 +267,7 @@ fn print_pkgbuild_pkg(
         "{}/{} {}",
         color_repo(c.enabled, repo),
         c.ss_name.paint(&pkg.pkgname),
-        c.ss_ver.paint(&srcinfo.version()),
+        c.ss_ver.paint(srcinfo.version()),
     );
 
     if let Ok(repo_pkg) = config.alpm.localdb().pkg(&*pkg.pkgname) {

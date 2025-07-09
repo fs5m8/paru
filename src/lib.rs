@@ -40,16 +40,15 @@ use crate::chroot::Chroot;
 use crate::config::{Config, Op};
 use crate::query::print_upgrade_list;
 
-use std::collections::HashMap;
 use std::env::{self, current_dir};
 use std::error::Error as StdError;
-use std::fs::{read_dir, read_to_string};
+use std::fs::read_to_string;
 use std::io::Write;
 
 use std::path::PathBuf;
 use std::process::Command;
 
-use ansi_term::Style;
+use ansiterm::Style;
 use anyhow::{bail, Error, Result};
 use cini::Ini;
 use fmt::print_target;
@@ -90,9 +89,7 @@ fn print_error(color: Style, err: Error) {
 
     let mut iter = err.chain().peekable();
 
-    if <dyn StdError>::is::<exec::PacmanError>(*iter.peek().unwrap())
-        || <dyn StdError>::is::<exec::Status>(*iter.peek().unwrap())
-    {
+    if <dyn StdError>::is::<exec::Status>(*iter.peek().unwrap()) {
         eprint!("{}", iter.peek().unwrap());
         return;
     }
@@ -121,9 +118,10 @@ pub async fn run<S: AsRef<str>>(args: &[S]) -> i32 {
             .format(|buf, record| {
                 writeln!(
                     buf,
-                    "{}: <{}> {}",
+                    "{}: <{}:{}> {}",
                     record.level().to_string().to_lowercase(),
                     record.module_path().unwrap_or("unknown"),
+                    record.line().unwrap_or_default(),
                     record.args()
                 )
             })
@@ -137,8 +135,8 @@ pub async fn run<S: AsRef<str>>(args: &[S]) -> i32 {
     let mut config = match Config::new() {
         Ok(config) => config,
         Err(err) => {
-            let code = if let Some(e) = err.downcast_ref::<install::Status>() {
-                e.0
+            let code = if let Some(&install::Status(e)) = err.downcast_ref() {
+                e
             } else {
                 1
             };
@@ -149,8 +147,8 @@ pub async fn run<S: AsRef<str>>(args: &[S]) -> i32 {
 
     match run2(&mut config, args).await {
         Err(err) => {
-            let code = if let Some(e) = err.downcast_ref::<install::Status>() {
-                e.0
+            let code = if let Some(&install::Status(e)) = err.downcast_ref() {
+                e
             } else {
                 1
             };
@@ -283,7 +281,7 @@ async fn handle_show(config: &mut Config) -> Result<i32> {
 async fn handle_get_pkg_build(config: &mut Config) -> Result<i32> {
     if config.print {
         download::show_pkgbuilds(config).await
-    } else if config.comments {
+    } else if config.comments >= 1 {
         download::show_comments(config).await
     } else {
         download::getpkgbuilds(config).await
@@ -374,8 +372,6 @@ async fn handle_sync(config: &mut Config) -> Result<i32> {
 }
 
 fn handle_repo(config: &mut Config) -> Result<i32> {
-    use std::os::unix::ffi::OsStrExt;
-
     let repoc = config.color.sl_repo;
     let pkgc = config.color.sl_pkg;
     let version = config.color.sl_version;
@@ -397,91 +393,7 @@ fn handle_repo(config: &mut Config) -> Result<i32> {
         repo::refresh(config, &repos)?;
     }
 
-    let (_, mut repos) = repo::repo_aur_dbs(config);
-    repos.retain(|r| {
-        config.delete >= 1
-            || config.uninstall
-            || config.targets.is_empty()
-            || config.targets.contains(&r.name().to_string())
-    });
-
-    if config.delete >= 1 {
-        let mut remove = HashMap::<&str, Vec<&str>>::new();
-        let mut rmfiles = Vec::new();
-        for repo in &repos {
-            for pkg in repo.pkgs() {
-                if config.targets.iter().any(|p| p == pkg.name()) {
-                    remove.entry(repo.name()).or_default().push(pkg.name());
-                }
-            }
-        }
-
-        let cb = config.alpm.take_raw_log_cb();
-        for repo in &repos {
-            if let Some(pkgs) = remove.get(&repo.name()) {
-                let path = repo
-                    .servers()
-                    .first()
-                    .unwrap()
-                    .trim_start_matches("file://");
-                repo::remove(config, path, repo.name(), pkgs)?;
-
-                let files = read_dir(path)?;
-
-                for file in files {
-                    let file = file?;
-                    if let Ok(pkg) = config.alpm.pkg_load(
-                        file.path().as_os_str().as_bytes(),
-                        false,
-                        alpm::SigLevel::NONE,
-                    ) {
-                        if pkgs.contains(&pkg.name()) {
-                            rmfiles.push(file.path());
-
-                            let mut sig = file.path().to_path_buf().into_os_string();
-                            sig.push(".sig");
-                            let sig = PathBuf::from(sig);
-                            if sig.exists() {
-                                rmfiles.push(sig);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        config.alpm.set_raw_log_cb(cb);
-
-        if !rmfiles.is_empty() {
-            let mut cmd = Command::new(&config.sudo_bin);
-            cmd.arg("rm").args(rmfiles);
-            exec::command(&mut cmd)?;
-        }
-
-        let repos = repos
-            .into_iter()
-            .map(|r| r.name().to_string())
-            .collect::<Vec<_>>();
-        repo::refresh(config, &repos)?;
-
-        if config.delete >= 2 {
-            config.need_root = true;
-            let db = config.alpm.localdb();
-            let pkgs = config
-                .targets
-                .iter()
-                .map(|p| p.as_str())
-                .filter(|p| db.pkg(*p).is_ok());
-
-            let mut args = config.pacman_globals();
-            args.op("remove");
-            args.targets = pkgs.collect();
-            if !args.targets.is_empty() {
-                exec::pacman(config, &args)?.success()?;
-            }
-        }
-
-        return Ok(0);
-    }
+    repo::delete(config)?;
 
     if config.refresh || config.sysupgrade {
         return Ok(0);
@@ -494,44 +406,7 @@ fn handle_repo(config: &mut Config) -> Result<i32> {
             || config.targets.contains(&r.name().to_string())
     });
 
-    for repo in repos {
-        if config.list {
-            for pkg in repo.pkgs() {
-                if config.quiet {
-                    println!("{}", pkg.name());
-                } else {
-                    print!(
-                        "{} {} {}",
-                        repoc.paint(repo.name()),
-                        pkgc.paint(pkg.name()),
-                        version.paint(pkg.version().as_str())
-                    );
-                    let local_pkg = config.alpm.localdb().pkg(pkg.name());
-
-                    if let Ok(local_pkg) = local_pkg {
-                        let installed = if local_pkg.version() != pkg.version() {
-                            tr!(" [installed: {}]", local_pkg.version())
-                        } else {
-                            tr!(" [installed]")
-                        };
-                        print!("{}", installedc.paint(installed));
-                    }
-                    println!();
-                }
-            }
-        } else if config.quiet {
-            println!("{}", repo.name());
-        } else {
-            println!(
-                "{} {}",
-                repo.name(),
-                repo.servers()
-                    .first()
-                    .unwrap()
-                    .trim_start_matches("file://")
-            );
-        }
-    }
+    repo::print(repos, config, repoc, pkgc, version, installedc);
 
     Ok(0)
 }
@@ -553,7 +428,13 @@ fn handle_chroot(config: &Config) -> Result<i32> {
         mflags: config.mflags.clone(),
         ro: repo::all_files(config),
         rw: config.pacman.cache_dir.clone(),
+        extra_pkgs: config.chroot_pkgs.clone(),
     };
+
+    if config.print {
+        println!("{}", config.chroot_dir.display());
+        return Ok(0);
+    }
 
     if !chroot.exists() {
         chroot.create(config, &["base-devel"])?;
@@ -565,6 +446,9 @@ fn handle_chroot(config: &Config) -> Result<i32> {
 
     if config.install {
         let mut args = vec!["pacman", "-S"];
+        if config.no_confirm {
+            args.push("--noconfirm");
+        }
         args.extend(config.targets.iter().map(|s| s.as_str()));
         chroot.run(&args)?;
     } else if !config.sysupgrade || !config.targets.is_empty() {

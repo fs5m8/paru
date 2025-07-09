@@ -3,7 +3,7 @@ use crate::devel::save_devel_info;
 use crate::exec::{self, Status};
 use crate::fmt::color_repo;
 use crate::info::get_terminal_width;
-use crate::pkgbuild::{PkgbuildRepos, RepoSource};
+use crate::pkgbuild::PkgbuildRepos;
 use crate::util::{get_provider, reopen_stdin};
 use crate::{alpm_debug_enabled, help, printtr, repo};
 
@@ -18,8 +18,8 @@ use std::str::FromStr;
 use alpm::{
     AnyDownloadEvent, AnyQuestion, Depend, DownloadEvent, DownloadResult, LogLevel, Question,
 };
-use ansi_term::Color::{Blue, Cyan, Green, Purple, Red, Yellow};
-use ansi_term::Style;
+use ansiterm::Color::{Blue, Cyan, Green, Purple, Red, Yellow};
+use ansiterm::Style;
 use anyhow::{anyhow, bail, ensure, Context, Error, Result};
 
 use bitflags::bitflags;
@@ -77,13 +77,13 @@ pub struct Colors {
     pub warning: Style,
     pub bold: Style,
     pub upgrade: Style,
-    pub base: Style,
+    //pub base: Style,
     pub action: Style,
     pub sl_repo: Style,
     pub sl_pkg: Style,
     pub sl_version: Style,
     pub sl_installed: Style,
-    pub ss_repo: Style,
+    //pub ss_repo: Style,
     pub ss_name: Style,
     pub ss_ver: Style,
     pub ss_stats: Style,
@@ -120,13 +120,13 @@ impl Colors {
             warning: Style::new().fg(Yellow),
             bold: Style::new().bold(),
             upgrade: Style::new().fg(Green).bold(),
-            base: Style::new().fg(Blue),
+            //base: Style::new().fg(Blue),
             action: Style::new().fg(Blue).bold(),
             sl_repo: Style::new().fg(Purple).bold(),
             sl_pkg: Style::new().bold(),
             sl_version: Style::new().fg(Green).bold(),
             sl_installed: Style::new().fg(Cyan).bold(),
-            ss_repo: Style::new().fg(Blue).bold(),
+            //ss_repo: Style::new().fg(Blue).bold(),
             ss_name: Style::new().bold(),
             ss_ver: Style::new().fg(Green).bold(),
             ss_stats: Style::new().bold(),
@@ -136,7 +136,7 @@ impl Colors {
             code: Style::new().fg(Cyan),
             news_date: Style::new().fg(Cyan).bold(),
             old_version: Style::new().fg(Red),
-            install_version: Style::new().fg(ansi_term::Color::Fixed(243)),
+            install_version: Style::new().fg(ansiterm::Color::Fixed(243)),
             new_version: Style::new().fg(Green),
             number_menu: Style::new().fg(Purple),
             group: Style::new().fg(Blue).bold(),
@@ -461,7 +461,7 @@ pub struct Config {
     pub complete: bool,
     pub print: bool,
     pub news_on_upgrade: bool,
-    pub comments: bool,
+    pub comments: usize,
     pub ssh: bool,
     pub keep_repo_cache: bool,
     pub fail_fast: bool,
@@ -515,6 +515,7 @@ pub struct Config {
     #[default(Path::new("/var/lib/aurbuild/").join(ARCH))]
     pub chroot_dir: PathBuf,
     pub chroot: bool,
+    pub chroot_pkgs: Vec<String>,
     pub install: bool,
     pub uninstall: bool,
     pub sysupgrade: bool,
@@ -795,7 +796,7 @@ impl Config {
         }
 
         if self.repos != LocalRepos::None {
-            let repos = repo::repo_aur_dbs(self).1;
+            let (_, repos) = repo::repo_aur_dbs(self);
 
             if repos.is_empty() {
                 bail!(
@@ -805,7 +806,10 @@ impl Config {
 
     [aur]
     SigLevel = PackageOptional DatabaseOptional
-    Server = file:///var/lib/repo/aur"
+    Server = file:///var/lib/repo/aur
+
+then initialise it with:
+    paru -Ly"
                 );
             }
 
@@ -824,6 +828,9 @@ impl Config {
 
         if !self.assume_installed.is_empty() && !self.chroot {
             self.mflags.push("-d".to_string());
+        }
+        if self.no_check {
+            self.mflags.push("--nocheck".to_string());
         }
 
         if self.chroot {
@@ -964,8 +971,8 @@ impl Config {
         let repo = self.pkgbuild_repos.repo_mut(repo).unwrap();
 
         match key {
-            "Url" => repo.source = RepoSource::Url(Url::parse(value?)?),
-            "Path" => repo.source = RepoSource::Path(PathBuf::from(value?.to_string())),
+            "Url" => repo.source.set_url(Url::parse(value?)?),
+            "Path" => repo.source.set_path(value?.to_string()),
             "Depth" => repo.depth = value?.parse()?,
             "SkipReview" => repo.skip_review = true,
             "GenerateSrcinfo" => repo.force_srcinfo = true,
@@ -1163,10 +1170,7 @@ pub fn version() {
     println!(" - libalpm v{}", alpm::version());
 }
 
-fn question(question: AnyQuestion, data: &mut (bool, Colors)) {
-    let no_confirm = data.0;
-    let c = data.1;
-
+fn question(question: AnyQuestion, (no_confirm, c): &mut (bool, Colors)) {
     match question.question() {
         Question::SelectProvider(mut question) => {
             let providers = question.providers();
@@ -1196,7 +1200,7 @@ fn question(question: AnyQuestion, data: &mut (bool, Colors)) {
                 print!("{}) {}  ", n + 1, pkg.name());
             }
 
-            let index = get_provider(len, no_confirm);
+            let index = get_provider(len, *no_confirm);
             question.set_index(index as i32);
         }
         Question::InstallIgnorepkg(mut question) => {

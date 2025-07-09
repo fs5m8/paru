@@ -14,7 +14,7 @@ use std::iter::FromIterator;
 use std::time::Duration;
 
 use alpm_utils::{DbListExt, Target};
-use ansi_term::Style;
+use ansiterm::Style;
 use anyhow::{anyhow, bail, Context, Result};
 use aur_depends::Base;
 use futures::future::{join_all, select_ok, FutureExt};
@@ -115,7 +115,7 @@ pub async fn gendb(config: &mut Config) -> Result<()> {
     let pkgs = db.pkgs().iter().map(|p| p.name()).collect::<Vec<_>>();
     let ignore = &config.ignore;
 
-    let mut aur = split_repo_aur_pkgs(config, &pkgs).1;
+    let (_, mut aur) = split_repo_aur_pkgs(config, &pkgs);
     let mut devel_info = load_devel_info(config)?.unwrap_or_default();
 
     aur.retain(|pkg| {
@@ -250,7 +250,7 @@ pub fn save_devel_info(config: &Config, devel_info: &DevelInfo) -> Result<()> {
     Ok(())
 }
 
-async fn ls_remote_intenral(
+async fn ls_remote_internal(
     git: &str,
     flags: &[String],
     remote: &str,
@@ -293,7 +293,7 @@ async fn ls_remote(
 ) -> Result<String> {
     let remote = &remote;
     let time = Duration::from_secs(15);
-    let future = ls_remote_intenral(git, flags, remote, branch);
+    let future = ls_remote_internal(git, flags, remote, branch);
     let future = timeout(time, future);
 
     if let Ok(v) = future.await {
@@ -321,11 +321,11 @@ fn parse_url(source: &str) -> Option<(String, &'_ str, Option<&'_ str>)> {
 
     let mut split = rest.splitn(2, '#');
     let remote = split.next().unwrap();
-    let remote = remote.split_once('?').map_or(remote, |x| x.0);
+    let remote = remote.split_once('?').map_or(remote, |(x, _)| x);
     let remote = format!("{}://{}", protocol, remote);
 
     let branch = if let Some(fragment) = split.next() {
-        let fragment = fragment.split_once('?').map_or(fragment, |x| x.0);
+        let fragment = fragment.split_once('?').map_or(fragment, |(x, _)| x);
         let mut split = fragment.splitn(2, '=');
         let frag_type = split.next().unwrap();
 
@@ -348,7 +348,7 @@ pub async fn possible_devel_updates(config: &Config) -> Result<Vec<String>> {
     let mut pkgbases: HashMap<&str, Vec<&alpm::Package>> = HashMap::new();
 
     for pkg in db.pkgs().iter() {
-        let name = pkg_base_or_name(&pkg);
+        let name = pkg_base_or_name(pkg);
         pkgbases.entry(name).or_default().push(pkg);
     }
 
@@ -411,12 +411,12 @@ pub async fn filter_devel_updates(
 
     let (_, dbs) = repo::repo_aur_dbs(config);
     for pkg in dbs.iter().flat_map(|d| d.pkgs()) {
-        let name = pkg_base_or_name(&pkg);
+        let name = pkg_base_or_name(pkg);
         pkgbases.entry(name).or_default().push(pkg);
     }
 
     for pkg in db.pkgs().iter() {
-        let name = pkg_base_or_name(&pkg);
+        let name = pkg_base_or_name(pkg);
         pkgbases.entry(name).or_default().push(pkg);
     }
 
@@ -571,19 +571,19 @@ pub fn load_devel_info(config: &Config) -> Result<Option<DevelInfo>> {
     }
 
     for pkg in config.alpm.localdb().pkgs().iter() {
-        let name = pkg_base_or_name(&pkg);
+        let name = pkg_base_or_name(pkg);
         pkgbases.entry(name).or_default().push(pkg);
     }
 
     let (_, dbs) = repo::repo_aur_dbs(config);
     for pkg in dbs.iter().flat_map(|d| d.pkgs()) {
-        let name = pkg_base_or_name(&pkg);
+        let name = pkg_base_or_name(pkg);
         pkgbases.entry(name).or_default().push(pkg);
     }
 
     devel_info
         .info
-        .retain(|pkg, _| pkgbases.get(pkg.as_str()).is_some());
+        .retain(|pkg, _| pkgbases.contains_key(pkg.as_str()));
 
     save_devel_info(config, &devel_info)?;
 

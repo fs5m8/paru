@@ -1,4 +1,4 @@
-use crate::config::{Alpm, Config, LocalRepos, Op, YesNoAll, YesNoAllTree};
+use crate::config::{Alpm, Config, LocalRepos, YesNoAll, YesNoAllTree};
 use crate::fmt::color_repo;
 use crate::util::{get_provider, NumberMenu};
 use crate::RaurHandle;
@@ -27,7 +27,6 @@ pub fn flags(config: &mut Config) -> aur_depends::Flags {
     }
     if config.no_check {
         flags.remove(Flags::CHECK_DEPENDS);
-        config.mflags.push("--nocheck".into());
     }
     if !config.mode.pkgbuild() {
         flags &= !Flags::PKGBUILDS;
@@ -48,7 +47,7 @@ pub fn flags(config: &mut Config) -> aur_depends::Flags {
         ),
         YesNoAll::All => flags |= Flags::PROVIDES,
     }
-    if config.op == Op::Default {
+    if config.interactive {
         flags.remove(Flags::TARGET_PROVIDES);
     }
     if config.repos != LocalRepos::None || config.rebuild == YesNoAllTree::Tree || config.chroot {

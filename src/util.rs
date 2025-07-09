@@ -4,14 +4,13 @@ use crate::repo;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{stdin, stdout, BufRead, Write};
+use std::io::{stderr, stdin, stdout, BufRead, Write};
 use std::ops::Range;
-use std::os::fd::{AsFd, AsRawFd};
+use std::os::fd::AsFd;
 
 use alpm::{Package, PackageReason};
 use alpm_utils::{AsTarg, DbListExt, Targ};
 use anyhow::Result;
-use nix::libc::{STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO};
 use nix::unistd::dup2;
 use tr::tr;
 
@@ -98,10 +97,10 @@ pub fn split_repo_aur_info<'a, T: AsTarg>(
         } else if !config.mode.aur() && !config.mode.pkgbuild() {
             local.push(targ);
         } else if let Some(repo) = targ.repo {
-            if repo == config.aur_namespace() || repo == "." {
-                aur.push(targ);
-            } else {
+            if config.alpm.syncdbs().iter().any(|db| db.name() == repo) {
                 local.push(targ);
+            } else {
+                aur.push(targ);
             }
         } else if dbs.pkg(targ.pkg).is_ok() {
             local.push(targ);
@@ -409,18 +408,20 @@ pub fn repo_aur_pkgs(config: &Config) -> (Vec<&alpm::Package>, Vec<&alpm::Packag
 }
 
 pub fn redirect_to_stderr() -> Result<File> {
-    let stdout = stdout().as_fd().try_clone_to_owned()?;
-    dup2(STDERR_FILENO, STDOUT_FILENO)?;
+    let mut stdout = stdout().as_fd().try_clone_to_owned()?;
+    dup2(stderr(), &mut stdout)?;
     Ok(File::from(stdout))
 }
 
 pub fn reopen_stdin() -> Result<()> {
     let file = File::open("/dev/tty")?;
-    dup2(file.as_raw_fd(), STDIN_FILENO)?;
+    let mut stdin = stdin().as_fd().try_clone_to_owned()?;
+    dup2(&file, &mut stdin)?;
     Ok(())
 }
 
 pub fn reopen_stdout(file: &File) -> Result<()> {
-    dup2(file.as_raw_fd(), STDOUT_FILENO)?;
+    let mut stdout = stdout().as_fd().try_clone_to_owned()?;
+    dup2(&file, &mut stdout)?;
     Ok(())
 }

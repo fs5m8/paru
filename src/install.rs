@@ -4,7 +4,7 @@ use std::env::var;
 use std::ffi::OsStr;
 use std::fmt::Write as _;
 use std::fs::{read_dir, read_link, OpenOptions};
-use std::io::{Read, Write};
+use std::io::{BufRead, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::Ordering;
@@ -27,7 +27,7 @@ use crate::{args, exec, news, print_error, printtr, repo};
 use alpm::{Alpm, Depend, Version};
 use alpm_utils::depends::{satisfies, satisfies_nover, satisfies_provide, satisfies_provide_nover};
 use alpm_utils::{DbListExt, Targ};
-use ansi_term::Style;
+use ansiterm::Style;
 use anyhow::{bail, ensure, Context, Result};
 use aur_depends::{Actions, Base, Conflict, DepMissing, RepoPackage};
 use log::debug;
@@ -53,6 +53,8 @@ impl Status {
 }
 
 struct Installer {
+    refresh: usize,
+    sysupgrade: usize,
     install_targets: bool,
     done_something: bool,
     ran_pacman: bool,
@@ -100,6 +102,8 @@ impl Installer {
         fetch.diff_dir = fetch.diff_dir.join("repo");
 
         Self {
+            sysupgrade: config.args.count("u", "sysupgrade"),
+            refresh: config.args.count("y", "refresh"),
             install_targets: true,
             done_something: false,
             ran_pacman: false,
@@ -119,21 +123,24 @@ impl Installer {
         }
     }
 
-    fn early_refresh(&self, config: &Config) -> Result<()> {
+    fn early_refresh(&self, config: &mut Config) -> Result<()> {
         let mut args = config.pacman_globals();
         for _ in 0..config.args.count("y", "refresh") {
             args.arg("y");
         }
         args.targets.clear();
         exec::pacman(config, &args)?.success()?;
+        config.args.remove("y").remove("refresh");
         Ok(())
     }
 
-    fn early_pacman(&mut self, config: &Config, targets: Vec<String>) -> Result<()> {
+    fn early_pacman(&mut self, config: &mut Config, targets: Vec<String>) -> Result<()> {
         let mut args = config.pacman_args();
         args.targets.clear();
         args.targets(targets.iter().map(|i| i.as_str()));
         exec::pacman(config, &args)?.success()?;
+        config.args.remove("y").remove("refresh");
+        config.args.remove("u").remove("sysupgrade");
         Ok(())
     }
 
@@ -149,7 +156,7 @@ impl Installer {
     async fn news(&self, config: &Config) -> Result<()> {
         let c = config.color;
 
-        if config.news_on_upgrade && config.args.has_arg("u", "sysupgrade") {
+        if config.news_on_upgrade && self.sysupgrade != 0 {
             let mut ret = 0;
             match news::news(config).await {
                 Ok(v) => ret = v,
@@ -236,7 +243,7 @@ impl Installer {
                 }
             }
 
-            if config.args.has_arg("u", "sysupgrade") {
+            if config.sysupgrade {
                 targets.retain(|&p| config.alpm.localdb().pkg(p).is_ok());
             }
 
@@ -261,14 +268,30 @@ impl Installer {
             }
 
             args.targets = targets;
+            let ask;
 
-            if !self.conflict
-                && !self.built.is_empty()
+            if !self.built.is_empty()
                 && (!config.args.has_arg("u", "sysupgrade")
                     || config.combined_upgrade
                     || !config.mode.repo())
             {
-                args.arg("noconfirm");
+                if self.conflict {
+                    if config.use_ask {
+                        if let Some(arg) = args.args.iter_mut().find(|a| a.key == "ask") {
+                            let num = arg.value.unwrap_or_default();
+                            let mut num = num.parse::<i32>().unwrap_or_default();
+                            num |= alpm::QuestionType::ConflictPkg as i32;
+                            ask = num.to_string();
+                            arg.value = Some(ask.as_str());
+                        } else {
+                            let value = alpm::QuestionType::ConflictPkg as i32;
+                            ask = value.to_string();
+                            args.push_value("ask", ask.as_str());
+                        }
+                    }
+                } else {
+                    args.arg("noconfirm");
+                }
             }
 
             if !args.targets.is_empty()
@@ -515,7 +538,13 @@ impl Installer {
             chroot_flags.push("-cu");
             self.chroot
                 .build(dir, &extra, &chroot_flags, &["-ofA"], &config.env)
-                .with_context(|| tr!("failed to download sources for '{}'"))?;
+                .with_context(|| tr!("failed to download sources for '{}'", base))?;
+
+            if !self.chroot.extra_pkgs.is_empty() {
+                let mut pkgs = vec!["pacman", "-S", "--asdeps", "--needed", "--noconfirm", "--"];
+                pkgs.extend(self.chroot.extra_pkgs.iter().map(|s| s.as_str()));
+                self.chroot.run_usr(&pkgs)?;
+            }
         } else {
             // download sources
             let mut args = vec!["--verifysource", "-Af"];
@@ -542,8 +571,6 @@ impl Installer {
         if !base.packages().all(|p| pkgdests.contains_key(p)) {
             bail!(tr!("package list does not match srcinfo"));
         }
-
-        let debug_paths = self.debug_paths(config, base, &pkgdests)?;
 
         let needs_build = needs_build(config, base, &pkgdests, &version);
         if needs_build {
@@ -583,6 +610,8 @@ impl Installer {
             )
         }
 
+        let debug_paths = self.debug_paths(config, base, &pkgdests)?;
+
         self.add_pkg(config, base, repo, &pkgdests, &debug_paths)?;
         self.queue_install(base, &pkgdests, &debug_paths);
         Ok((pkgdests, version))
@@ -595,18 +624,8 @@ impl Installer {
         debug_paths: &HashMap<String, String>,
     ) {
         let to_install: Vec<_> = match base {
-            Base::Aur(a) => a
-                .pkgs
-                .iter()
-                .filter(|a| !a.make)
-                .map(|a| a.pkg.name.as_str())
-                .collect(),
-            Base::Pkgbuild(c) => c
-                .pkgs
-                .iter()
-                .filter(|c| !c.make)
-                .map(|a| a.pkg.pkgname.as_str())
-                .collect(),
+            Base::Aur(a) => a.pkgs.iter().map(|a| a.pkg.name.as_str()).collect(),
+            Base::Pkgbuild(c) => c.pkgs.iter().map(|a| a.pkg.pkgname.as_str()).collect(),
         };
 
         let to_install = to_install
@@ -642,14 +661,14 @@ impl Installer {
                     .iter()
                     .find(|db| db.name() == *repo)
                     .unwrap();
-                let path = repo::file(&repo).unwrap();
+                let path = repo::file(repo).unwrap();
                 let name = repo.name().to_string();
                 repo::add(config, path, &name, &paths)?;
                 repo::refresh(config, &[name])?;
             } else {
-                let path = repo.1;
-                repo::add(config, path, repo.0, &paths)?;
-                repo::refresh(config, &[repo.0])?;
+                let (name, path) = repo;
+                repo::add(config, path, name, &paths)?;
+                repo::refresh(config, &[name])?;
             }
             if let Some(info) = self.new_devel_info.info.remove(base.package_base()) {
                 self.devel_info
@@ -820,7 +839,7 @@ impl Installer {
         let (_, repo) = repo::repo_aur_dbs(config);
         let default_repo = repo.first();
         if let Some(repo) = default_repo {
-            let file = repo::file(&repo).unwrap();
+            let file = repo::file(repo).unwrap();
             repo::init(config, file, repo.name())?;
         }
 
@@ -833,14 +852,14 @@ impl Installer {
         }
 
         let repo_server =
-            default_repo.map(|r| (r.name().to_string(), repo::file(&r).unwrap().to_string()));
+            default_repo.map(|r| (r.name().to_string(), repo::file(r).unwrap().to_string()));
         drop(repo);
 
         for base in build {
             self.failed.push(base.clone());
             let repo_server = repo_server
                 .as_ref()
-                .map(|rs| (rs.0.as_str(), rs.1.as_str()));
+                .map(|(name, file)| (name.as_str(), file.as_str()));
 
             let err = self.build_install_pkgbuild(config, base, repo_server);
 
@@ -876,10 +895,7 @@ impl Installer {
         let targets = args::parse_targets(targets_str);
         let (mut repo_targets, aur_targets) = split_repo_aur_targets(config, &targets)?;
 
-        if targets_str.is_empty()
-            && !config.args.has_arg("u", "sysupgrade")
-            && !config.args.has_arg("y", "refresh")
-        {
+        if targets_str.is_empty() && self.sysupgrade == 0 && !self.sysupgrade == 0 {
             bail!(tr!("no targets specified (use -h for help)"));
         }
 
@@ -902,16 +918,13 @@ impl Installer {
             }
         }
 
-        if targets_str.is_empty()
-            && !config.args.has_arg("u", "sysupgrade")
-            && !config.args.has_arg("y", "refresh")
-        {
+        if targets_str.is_empty() && self.sysupgrade == 0 && self.refresh == 0 {
             return Ok(());
         }
 
         config.init_alpm()?;
 
-        if config.args.has_arg("y", "refresh") {
+        if self.refresh != 0 {
             config.pkgbuild_repos.refresh(config)?;
             self.done_something = true;
         }
@@ -933,7 +946,7 @@ impl Installer {
         let repos = repos.aur_depends_repo(config);
         let mut resolver = resolver(config, &config.alpm, &config.raur, &mut cache, repos, flags);
 
-        if config.args.has_arg("u", "sysupgrade") {
+        if self.sysupgrade != 0 {
             // TODO?
             let upgrades = get_upgrades(config, &mut resolver).await?;
             for pkg in &upgrades.repo_skip {
@@ -953,28 +966,19 @@ impl Installer {
             repo: Some(config.aur_namespace()),
             pkg: p,
         }));
-        targets.extend(self.upgrades.pkgbuild_keep.iter().map(|p| Targ {
-            repo: Some(&p.0),
-            pkg: &p.1,
+        targets.extend(self.upgrades.pkgbuild_keep.iter().map(|(repo, pkg)| Targ {
+            repo: Some(repo),
+            pkg,
         }));
 
         targets.extend(self.upgrades.repo_keep.iter().map(Targ::from));
 
-        if Self::shoud_just_pacman(
-            config.mode,
-            &config.args,
-            aur_targets,
-            &self.upgrades,
-            self.ran_pacman,
-        ) {
+        if self.shoud_just_pacman(config.mode, aur_targets, &self.upgrades, self.ran_pacman) {
             print_warnings(config, &cache, None);
             let mut args = config.pacman_args();
             let targets = targets.iter().map(|t| t.to_string()).collect::<Vec<_>>();
             args.targets = targets.iter().map(|s| s.as_str()).collect();
 
-            if config.combined_upgrade {
-                args.remove("y").remove("refresh");
-            }
             if !args.targets.is_empty()
                 || args.has_arg("u", "sysupgrade")
                 || args.has_arg("y", "refresh")
@@ -986,9 +990,9 @@ impl Installer {
             return Ok(());
         }
 
-        if targets.is_empty() && !upgrade_later(config) {
+        if targets.is_empty() && !self.upgrade_later(config) {
             print_warnings(config, &cache, None);
-            if !self.done_something || config.args.has_arg("u", "sysupgrade") {
+            if !self.done_something || self.sysupgrade != 0 {
                 printtr!(" there is nothing to do");
             }
             return Ok(());
@@ -1033,8 +1037,8 @@ impl Installer {
     }
 
     fn shoud_just_pacman(
+        &self,
         mode: Mode,
-        args: &Args<String>,
         aur_targets: &[Targ<'_>],
         upgrades: &Upgrades,
         ran_pacman: bool,
@@ -1042,7 +1046,7 @@ impl Installer {
         if !mode.aur() && !mode.pkgbuild() {
             return true;
         }
-        if args.has_arg("u", "sysupgrade") || args.has_arg("y", "refresh") {
+        if self.sysupgrade != 0 || self.refresh != 0 {
             return false;
         }
         if ran_pacman {
@@ -1064,7 +1068,15 @@ impl Installer {
             bail!(tr!("--downloadonly can't be used for AUR packages"));
         }
 
-        let conflicts = check_actions(config, actions)?;
+        let conflicts = check_actions(config, actions, !config.chroot || self.install_targets)?;
+
+        self.conflicts = conflicts
+            .0
+            .iter()
+            .map(|c| c.pkg.clone())
+            .chain(conflicts.1.iter().map(|c| c.pkg.clone()))
+            .collect::<HashSet<_>>();
+
         let c = config.color;
 
         print_warnings(config, cache, Some(actions));
@@ -1106,7 +1118,7 @@ impl Installer {
 
         if actions.build.is_empty() {
             if !config.chroot {
-                repo_install(config, &actions.install)?;
+                repo_install(config, &actions.install, &self.conflicts)?;
             }
             return Ok(());
         }
@@ -1190,19 +1202,12 @@ impl Installer {
         }
 
         if !config.chroot {
-            repo_install(config, &actions.install)?;
+            repo_install(config, &actions.install, &self.conflicts)?;
         } else {
             return Ok(());
         }
 
         update_aur_list(config);
-
-        self.conflicts = conflicts
-            .0
-            .iter()
-            .map(|c| c.pkg.clone())
-            .chain(conflicts.1.iter().map(|c| c.pkg.clone()))
-            .collect::<HashSet<_>>();
 
         if has_make {
             self.remove_make.extend(
@@ -1223,12 +1228,16 @@ impl Installer {
             self.remove_make.extend(
                 actions
                     .iter_pkgbuilds()
-                    .filter(|p| p.1.make)
-                    .map(|p| p.1.pkg.pkgname.clone()),
+                    .filter(|(_, p)| p.make)
+                    .map(|(_, p)| p.pkg.pkgname.clone()),
             );
         }
 
         Ok(())
+    }
+
+    fn upgrade_later(&self, config: &Config) -> bool {
+        config.mode.repo() && config.chroot && (self.sysupgrade != 0 || self.refresh != 0)
     }
 }
 
@@ -1256,14 +1265,14 @@ fn print_warnings(config: &Config, cache: &Cache, actions: Option<&Actions>) {
         warnings.missing = pkgs
             .iter()
             .filter(|pkg| !cache.contains(pkg.name()))
-            .filter(|pkg| !is_debug(**pkg))
+            .filter(|pkg| !is_debug(pkg))
             .map(|pkg| pkg.name())
             .filter(|pkg| !config.no_warn.is_match(pkg))
             .collect::<Vec<_>>();
 
         warnings.ood = pkgs
             .iter()
-            .filter(|pkg| !is_debug(**pkg))
+            .filter(|pkg| !is_debug(pkg))
             .filter_map(|pkg| cache.get(pkg.name()))
             .filter(|pkg| pkg.out_of_date.is_some())
             .map(|pkg| pkg.name.as_str())
@@ -1272,7 +1281,7 @@ fn print_warnings(config: &Config, cache: &Cache, actions: Option<&Actions>) {
 
         warnings.orphans = pkgs
             .iter()
-            .filter(|pkg| !is_debug(**pkg))
+            .filter(|pkg| !is_debug(pkg))
             .filter_map(|pkg| cache.get(pkg.name()))
             .filter(|pkg| pkg.maintainer.is_none())
             .map(|pkg| pkg.name.as_str())
@@ -1309,12 +1318,6 @@ fn print_warnings(config: &Config, cache: &Cache, actions: Option<&Actions>) {
     warnings.all(config.color, config.cols);
 }
 
-fn upgrade_later(config: &Config) -> bool {
-    config.mode.repo()
-        && config.chroot
-        && (config.args.has_arg("u", "sysupgrade") || config.args.has_arg("y", "refresh"))
-}
-
 fn fmt_stack(want: &DepMissing) -> String {
     match &want.dep {
         Some(dep) => format!("{} ({})", want.pkg, dep),
@@ -1322,7 +1325,11 @@ fn fmt_stack(want: &DepMissing) -> String {
     }
 }
 
-fn check_actions(config: &Config, actions: &mut Actions) -> Result<(Vec<Conflict>, Vec<Conflict>)> {
+fn check_actions(
+    config: &Config,
+    actions: &mut Actions,
+    check_conflicts: bool,
+) -> Result<(Vec<Conflict>, Vec<Conflict>)> {
     let c = config.color;
     let dups = actions.duplicate_targets();
     ensure!(
@@ -1361,20 +1368,16 @@ fn check_actions(config: &Config, actions: &mut Actions) -> Result<(Vec<Conflict
         );
     }
 
-    if actions.build.is_empty() {
-        return Ok((Vec::new(), Vec::new()));
-    }
-
-    if config.chroot && config.args.has_arg("w", "downloadonly") {
-        return Ok((Vec::new(), Vec::new()));
-    }
-
-    println!(
-        "{} {}",
-        c.action.paint("::"),
-        c.bold.paint(tr!("Calculating conflicts..."))
-    );
-    let conflicts = actions.calculate_conflicts(!config.chroot);
+    let conflicts = if check_conflicts {
+        println!(
+            "{} {}",
+            c.action.paint("::"),
+            c.bold.paint(tr!("Calculating conflicts..."))
+        );
+        actions.calculate_conflicts(!config.chroot)
+    } else {
+        Vec::new()
+    };
     println!(
         "{} {}",
         c.action.paint("::"),
@@ -1446,7 +1449,11 @@ fn check_actions(config: &Config, actions: &mut Actions) -> Result<(Vec<Conflict
     Ok((conflicts, inner_conflicts))
 }
 
-fn repo_install(config: &Config, install: &[RepoPackage]) -> Result<i32> {
+fn repo_install(
+    config: &Config,
+    install: &[RepoPackage],
+    conflicts: &HashSet<String>,
+) -> Result<i32> {
     if install.is_empty() {
         return Ok(0);
     }
@@ -1466,17 +1473,20 @@ fn repo_install(config: &Config, install: &[RepoPackage]) -> Result<i32> {
         .remove("asexp")
         .remove("y")
         .remove("i")
-        .remove("refresh")
-        .arg("noconfirm");
+        .remove("refresh");
+
+    if !install.iter().any(|pkg| conflicts.contains(pkg.pkg.name())) {
+        args.arg("noconfirm");
+    }
     args.targets = targets.iter().map(|s| s.as_str()).collect();
 
     if !config.combined_upgrade || !config.mode.repo() {
         args.remove("u").remove("sysupgrade");
     }
 
-    if config.globals.has_arg("asexplicit", "asexp") {
+    if config.args.has_arg("asexplicit", "asexp") {
         exp.extend(install.iter().map(|p| p.pkg.name()));
-    } else if config.globals.has_arg("asdeps", "asdep") {
+    } else if config.args.has_arg("asdeps", "asdep") {
         deps.extend(install.iter().map(|p| p.pkg.name()));
     } else {
         for pkg in install {
@@ -1572,6 +1582,7 @@ fn run_file_manager(config: &Config, fm: &str, dir: &Path) -> Result<()> {
 
 fn print_dir(
     config: &Config,
+    pkgdir: &Path,
     path: &Path,
     stdin: &mut impl Write,
     buf: &mut Vec<u8>,
@@ -1597,25 +1608,30 @@ fn print_dir(
                 if recurse == 0 {
                     continue;
                 }
-                print_dir(config, &file.path(), stdin, buf, bat, recurse - 1)?;
+                print_dir(config, pkgdir, &file.path(), stdin, buf, bat, recurse - 1)?;
             }
             if !has_pkgbuild {
                 continue;
             }
             if file.file_type()?.is_symlink() {
                 let s = format!(
-                    "{} -> {}\n\n\n",
-                    file.path().display(),
+                    "  {} -> {}\n\n",
+                    file.path().strip_prefix(pkgdir)?.display(),
                     read_link(file.path())?.display()
                 );
-                let _ = write!(stdin, "{}", c.bold.paint(s));
+                let _ = write!(stdin, "  {}", c.bold.paint(s));
                 continue;
             }
             if file.file_type()?.is_dir() {
                 continue;
             }
 
-            let _ = writeln!(stdin, "{}", c.bold.paint(file.path().display().to_string()));
+            let _ = writeln!(
+                stdin,
+                "  {}:",
+                c.bold
+                    .paint(file.path().strip_prefix(pkgdir)?.display().to_string())
+            );
             if bat {
                 let output = Command::new(&config.bat_bin)
                     .arg("-pp")
@@ -1631,7 +1647,11 @@ fn print_dir(
                             file.path().display()
                         )
                     })?;
-                let _ = stdin.write_all(&output.stdout);
+                for line in output.stdout.lines() {
+                    let _ = stdin.write_all(b"    ");
+                    let _ = stdin.write_all(line?.as_bytes());
+                    let _ = stdin.write_all(b"\n");
+                }
             } else {
                 let mut pkgfile = OpenOptions::new()
                     .read(true)
@@ -1642,18 +1662,27 @@ fn print_dir(
                 buf.clear();
                 pkgfile.read_to_end(buf)?;
 
-                let _ = match std::str::from_utf8(buf) {
-                    Ok(_) => stdin.write_all(buf),
+                match std::str::from_utf8(buf) {
+                    Ok(_) => {
+                        for line in buf.lines() {
+                            let _ = stdin.write_all(b"    ");
+                            let _ = stdin.write_all(line?.as_bytes());
+                            let _ = stdin.write_all(b"\n");
+                        }
+                    }
                     Err(_) => {
-                        write!(
+                        let file = file.path();
+                        let file = file.strip_prefix(pkgdir)?;
+                        let _ = write!(
                             stdin,
-                            "{}",
-                            tr!("binary file: {}", file.path().display().to_string())
-                        )
+                            "  {}",
+                            c.bold
+                                .paint(tr!("binary file: {}", file.display().to_string()))
+                        );
                     }
                 };
             }
-            let _ = stdin.write_all(b"\n\n");
+            let _ = stdin.write_all(b"\n");
         }
     }
 
@@ -1661,6 +1690,8 @@ fn print_dir(
 }
 
 pub fn review(config: &Config, fetch: &aur_fetch::Fetch, pkgs: &[&str]) -> Result<()> {
+    let c = config.color;
+
     if pkgs.is_empty() {
         return Ok(());
     }
@@ -1682,6 +1713,7 @@ pub fn review(config: &Config, fetch: &aur_fetch::Fetch, pkgs: &[&str]) -> Resul
             let diffs = fetch.diff(&has_diff, config.color.enabled)?;
 
             if printed {
+                let pager_unconfigured = var("PARU_PAGER").is_err() && var("PAGER").is_err();
                 let pager = if Command::new("less").output().is_ok() {
                     "less"
                 } else {
@@ -1710,19 +1742,36 @@ pub fn review(config: &Config, fetch: &aur_fetch::Fetch, pkgs: &[&str]) -> Resul
 
                 let mut stdin = command.stdin.take().unwrap();
 
-                for diff in diffs {
-                    let _ = stdin.write_all(diff.as_bytes());
-                    let _ = stdin.write_all(b"\n\n\n");
+                if pager_unconfigured && pager == "less" {
+                    let _ = write!(
+                        stdin,
+                        "{}",
+                        c.bold
+                            .paint(tr!("Paging with less. Press 'q' to quit or 'h' for help."))
+                    );
+                    let _ = stdin.write_all(b"\n\n");
+                }
+
+                for (&pkg, diff) in has_diff.iter().zip(diffs) {
+                    let _ = write!(
+                        stdin,
+                        "{} {}:\n    ",
+                        c.action.paint("::"),
+                        c.bold.paint(pkg)
+                    );
+                    let _ = stdin.write_all(diff.replace('\n', "\n    ").trim_end().as_bytes());
+                    let _ = stdin.write_all(b"\n\n");
                 }
 
                 let bat = config.color.enabled
                     && Command::new(&config.bat_bin).arg("-V").output().is_ok();
 
                 let mut buf = Vec::new();
-                for pkg in &unseen {
-                    if !has_diff.contains(pkg) {
+                for &pkg in &unseen {
+                    if !has_diff.contains(&pkg) {
                         let dir = fetch.clone_dir.join(pkg);
-                        print_dir(config, &dir, &mut stdin, &mut buf, bat, 1)?;
+                        let _ = writeln!(stdin, "{} {}:", c.action.paint("::"), c.bold.paint(pkg));
+                        print_dir(config, &dir, &dir, &mut stdin, &mut buf, bat, 1)?;
                     }
                 }
 
@@ -1776,6 +1825,7 @@ fn chroot(config: &Config) -> Chroot {
 
         ro: repo::all_files(config),
         rw: config.pacman.cache_dir.clone(),
+        extra_pkgs: config.chroot_pkgs.clone(),
     };
 
     if config.args.count("d", "nodeps") > 1 {
@@ -1787,7 +1837,7 @@ fn chroot(config: &Config) -> Chroot {
 
 fn trim_dep_ver(dep: &str, trim: bool) -> &str {
     if trim {
-        dep.split_once(is_ver_char).map_or(dep, |x| x.0)
+        dep.split_once(is_ver_char).map_or(dep, |(x, _)| x)
     } else {
         dep
     }
